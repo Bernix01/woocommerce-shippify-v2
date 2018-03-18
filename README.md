@@ -1,10 +1,10 @@
 # Woocommerce Shippify Plugin
 
-![alt text](http://startupbrasil.org.br/wp-content/uploads/2014/12/shippify_logo_big.png "Shippify Logo")
+![alt text](http://cdn.shippify.co/web/images/shippify_logo.png "Shippify Logo")
 
-- **Contributors:** [Leonardo Kuffo](https://github.com/lkuffo/), [Wander Bravo](https://github.com/bram70)
+- **Contributors:** [Guillermo Bernal](https://github.com/bernix01), [Leonardo Kuffo](https://github.com/lkuffo/), [Wander Bravo](https://github.com/bram70)
 - **Tags:** Shipping, delivery, shippify
-- **Version:** 1.2.5
+- **Version:** 0.1.0-alpha
 - **Requires at least:** 4.5.7
 - **Tested up to:** 4.9.4
 - **Stable tag:** 4.9.4
