@@ -520,7 +520,7 @@ class WC_Shippify_Admin_Back_Office {
                     "lng": ' . $deliver_lon . ',
                     "address": "' . $deliver_address . '"
                 },
-                "ref_id": "' . $ref_id . '",
+                "ref_id": ' . $ref_id . ',
                 "extra": {
                     "note":  "' . $note . '"
                 }
