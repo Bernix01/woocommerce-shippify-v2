@@ -22,7 +22,7 @@ class WC_Shippify_Thankyou {
 	 * Creates a new WC_Shippify_Thankyou intance. Adds actions.
 	 */
 	public function __construct() {
-		add_action( 'woocommerce_thankyou', array( $this, 'display_shippify_order_data' ), 20 );
+		add_action( 'woocommerce_thankyou_cod', array( $this, 'display_shippify_order_data' ), 20 );
 	}
 
 	/**
@@ -83,14 +83,15 @@ class WC_Shippify_Thankyou {
 		// Credentials.
 		$api_id     = get_option( 'shippify_id' );
 		$api_secret = get_option( 'shippify_secret' );
-		foreach ( $deliveries as $delivery ) {
-			$delivery['referenceId'] = $ref_id;
+		for ( $i = 0; $i < count( $deliveries ); ++$i ) {
+			$deliveries[ $i ]['referenceId'] = '' . $ref_id;
 			if ( $cod ) {
-				$delivery['cod'] = $this->get_cod( $delivery['packages'] );
+				$deliveries[ $i ]['cod'] = $this->get_cod( $deliveries[ $i ]['packages'] );
 			}
 		}
+
 		// Constructing the POST request.
-		$request_body = '{"deliveries":' . json_encode( array_values( $deliveries ) ) . ',"quoteId":' . $quote_id . '}';
+		$request_body = '{ "flexible": true, "express": false, "timeslots": false, "limit": 2, "deliveries":' . json_encode( array_values( $deliveries ) ) . ',"quoteId":' . $quote_id . '}';
 
 		// Basic Authorization.
 		$args = array(
@@ -102,17 +103,27 @@ class WC_Shippify_Thankyou {
 			'body'    => $request_body,
 		);
 
+		$order->add_order_note( 'shippify_data -> </br>' . $request_body );
+		$order->save();
 		$response = wp_remote_post( $task_endpoint, $args );
 		if ( ! is_wp_error( $response ) && 200 == $response['response']['code'] ) {
 			$response = json_decode( $response['body'], true );
 			if ( count( $response['payload'] ) == count( $deliveries ) ) {
-				$order->update_meta_data( '_is_dispatched', 'yes' );
-				$order->update_meta_data( '_shippify_id', json_encode( array_map( array( $this, 'to_ids' ), $response['payload'] ) ) );
+				$order->update_meta_data( 'is_dispatched', 'yes' );
+				$order->update_meta_data( 'shippify_id', json_encode( array_map( array( $this, 'to_ids' ), $response['payload'] ) ) );
+				$order->add_order_note( 'Shippify: Item shipped! - COD: ' . $cod );
+				$order->save();
 				return true;
 			} else {
+				$order->add_order_note( 'Shippify: Count mismatch' );
+				$order->add_order_note( 'Shippify: shipppify_errors_response \n' . $response );
+				$order->save();
 				return false;
 			}
 		} else {
+			$order->add_order_note( 'Shippify: Response code not 200' );
+			$order->add_order_note( 'Shippify: shipppify_errors_response \n' . json_encode( $response ) );
+			$order->save();
 			return false;
 		}
 	}

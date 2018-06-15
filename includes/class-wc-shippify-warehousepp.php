@@ -26,15 +26,6 @@ class WC_Shippify_Warehousepp {
 
 	}
 
-	// public function wc_warehouse_id_field()
-	// {
-	// $field = array(
-	// 'id' => 'christmas_price',
-	// 'label' => __('Christmas Price', 'textdomain'),
-	// 'data_type' => 'price', //Let WooCommerce formats our field as price field
-	// );
-	// woocommerce_wp_text_input($field);
-	// }
 	public function custom_tab_panel() {
 		?>
 		<div id="shippify" class="panel woocommerce_options_panel">
@@ -55,7 +46,7 @@ class WC_Shippify_Warehousepp {
 		$tabs['giftcard'] = array(
 			'label'  => __( 'Shippify', 'woocommerce' ),
 			'target' => 'shippify',
-			'class'  => array( 'show_if_simple', 'show_if_variable' ),
+			'class'  => array( 'show_if_simple', 'show_if_variable', 'show_if_grouped', 'show_if_external' ),
 		);
 		return $tabs;
 	}

@@ -52,6 +52,57 @@ class WC_Shippify_Admin_Back_Office {
 	}
 
 	/**
+	 * Diffuse Logic Algorithm used to calculate Shippify product size based on the product dimensions.
+	 *
+	 * @param WC_Product $product The product to calculate the size.
+	 */
+	public function calculate_product_shippify_size( $product ) {
+
+		$height = $product->get_height();
+		$width  = $product->get_width();
+		$length = $product->get_length();
+
+		if ( ! isset( $height ) || '' == $height ) {
+			return '3';
+		}
+		if ( ! isset( $width ) || '' == $width ) {
+			return '3';
+		}
+		if ( ! isset( $length ) || '' == $length ) {
+			return '3';
+		}
+
+		$width  = floatval( $width );
+		$height = floatval( $height );
+		$length = floatval( $length );
+
+		$array_size        = array( 1, 2, 3, 4, 5 );
+		$array_dimensions  = array( 50, 80, 120, 150, 150 );
+		$radio_membership  = 10;
+		$dimensions_array  = array( 10, 10, 10 );
+		$final_percentages = array();
+
+		foreach ( $array_size as $size ) {
+			$percentage     = 0;
+			$max_percentage = 100 / 3;
+			foreach ( $dimensions_array as $dimension ) {
+				if ( $dimension < $array_dimensions[ $size - 1 ] ) {
+					$percentage = $percentage + $max_percentage;
+				} elseif ( $dimension < $array_dimensions[ $size - 1 ] + $radio_membership ) {
+					$pre_result = ( 1 - ( abs( $array_dimensions[ $size - 1 ] - $dimension ) / ( 2 * $radio_membership ) ) );
+					$tmp_p      = $pre_result < 0 ? 0 : $pre_result;
+					$percentage = $percentage + ( ( ( $pre_result * 100 ) * $max_percentage ) / 100 );
+				} else {
+					$percentage = $percentage + 0;
+				}
+			}
+			$final_percentages[] = $percentage;
+		}
+		$maxs = array_keys( $final_percentages, max( $final_percentages ) );
+		return $array_size[ $maxs[0] ];
+	}
+
+	/**
 	 * Hooked to filter: manage_shop_order_posts_custom_column,
 	 * Fetch onto the Shippify dispatched order status and shows it in the order table.
 	 *
@@ -84,12 +135,12 @@ class WC_Shippify_Admin_Back_Office {
 					// Get all the orders shippify ID
 					foreach ( $all as $post ) {
 						$tmp = '';
-						$tmp = get_post_meta( $post->ID, '_shippify_id', true );
+						$tmp = get_post_meta( $post->ID, 'shippify_id', true );
 						if ( $tmp != '' ) {
 							if ( $fetched_orders == '' ) {
-								$fetched_orders .= $tmp;
+								$fetched_orders .= implode( ',', json_decode( $tmp ) );
 							} else {
-								$fetched_orders .= ',' . $tmp;
+								$fetched_orders .= ',' . implode( ',', json_decode( $tmp ) );
 							}
 						}
 					}
@@ -99,13 +150,12 @@ class WC_Shippify_Admin_Back_Office {
 						'headers' => array(
 							'Authorization' => 'Basic ' . base64_encode( $api_id . ':' . $api_secret ),
 						),
-						// 'method'  => 'GET'
+						'method'  => 'GET',
 					);
 
 					$fetch_endpoint = 'https://api.shippify.co/v1/deliveries/' . $fetched_orders;
 
 					$response = wp_remote_get( $fetch_endpoint, $args );
-
 					if ( is_wp_error( $response ) ) {
 						$this->retrieved_status = 'Error Fetching. Try Again.';
 					} else {
@@ -119,19 +169,13 @@ class WC_Shippify_Admin_Back_Office {
 				}
 
 				$shippify_is_selected = false;
-				$shipping_methods     = get_post_meta( $order_id, '_shipping_method', true );
-				if ( is_array( $shipping_methods ) ) {
-					if ( in_array( 'shippify', $shipping_methods ) ) {
-						$shippify_is_selected = true;
-					}
-				} else {
-					if ( 'shippify' == $shipping_methods ) {
-						$shippify_is_selected = true;
-					}
+
+				if ( '' != get_post_meta( $the_order->id, 'shippify_id', true )) {
+					$shippify_is_selected = true;
 				}
 
 				// Search for every order status shipped via-Shippify on the response.
-				if ( $shippify_is_selected && ( 'yes' == get_post_meta( $the_order->id, '_is_dispatched', true ) ) ) {
+				if ( $shippify_is_selected && ( 'yes' == get_post_meta( $the_order->id, 'is_dispatched', true ) ) ) {
 					// creo que esto no se usa
 					// $order_to_fetch = get_post_meta( $order_id, '_shippify_id', true );
 					if ( $this->retrieved_status == 'Error Fetching. Try Again.' ) {
@@ -297,17 +341,12 @@ class WC_Shippify_Admin_Back_Office {
 	function add_shippify_order_action_button( $actions, $the_order ) {
 
 		$shippify_is_selected = false;
-		$shipping_methods     = get_post_meta( $the_order->id, '_shipping_method', true );
-		if ( is_array( $shipping_methods ) ) {
-			if ( in_array( 'shippify', $shipping_methods ) ) {
-				$shippify_is_selected = true;
-			}
-		} else {
-			if ( 'shippify' == $shipping_methods ) {
-				$shippify_is_selected = true;
-			}
+
+		if ( get_post_meta( $the_order->id, 'shippify_id', true ) != '' ) {
+			$shippify_is_selected = true;
 		}
-		if ( $shippify_is_selected && ( get_post_meta( $the_order->id, '_is_dispatched', true ) != 'yes' ) && ! isset( $_GET['post_status'] ) ) {
+
+		if ( $shippify_is_selected && ( get_post_meta( $the_order->id, 'is_dispatched', true ) != 'yes' ) && ! isset( $_GET['post_status'] ) ) {
 			$actions['shippify_action'] = array(
 				'url'    => wp_nonce_url( admin_url( 'edit.php?post_type=shop_order&myaction=woocommerce_shippify_dispatch&stablishedorder=' . $the_order->id ), 'woocommerce-shippify-dispatch' ),
 				'name'   => __( 'Dispatch', 'woocommerce-shippify' ),
@@ -331,8 +370,8 @@ class WC_Shippify_Admin_Back_Office {
 			if ( $res != false ) {
 				$response = json_decode( $res['body'], true );
 				if ( isset( $response['id'] ) ) {
-					update_post_meta( $order->id, '_is_dispatched', 'yes' );
-					update_post_meta( $order->id, '_shippify_id', $response['id'] );
+					// update_post_meta( $order->id, 'is_dispatched', 'yes' );
+					// update_post_meta( $order->id, 'shippify_id', $response['id'] );
 					$extra = 'none';
 				} else {
 					$extra = 'singleError';
@@ -380,6 +419,7 @@ class WC_Shippify_Admin_Back_Office {
 	public function display_order_data_in_admin( $order ) {
 		$shippify_is_selected = false;
 		$shipping_methods     = get_post_meta( $order->id, '_shipping_method', true );
+		echo $shipping_methods;
 		if ( is_array( $shipping_methods ) ) {
 			if ( in_array( 'shippify', $shipping_methods ) ) {
 				$shippify_is_selected = true;
@@ -450,10 +490,10 @@ class WC_Shippify_Admin_Back_Office {
 		foreach ( $order->get_items() as $item_id => $_preproduct ) {
 			$_product = $_preproduct->get_product();
 			$items    = $items . '{"id":"' . $_product->get_id() . '",
-                                "name":"' . $_product->get_name() . '",
-                                "qty": "' . $_preproduct['quantity'] . '",
-                                "size": "' . $this->calculate_product_shippify_size( $_product ) . '"
-                                },';
+								"name":"' . $_product->get_name() . '",
+								"qty": "' . $_preproduct['quantity'] . '",
+								"size": "' . $this->calculate_product_shippify_size( $_product ) . '"
+								},';
 		}
 		$items = substr( $items, 0, -1 ) . ']';
 
@@ -485,7 +525,7 @@ class WC_Shippify_Admin_Back_Office {
 			$warehouse_to_request = '';
 		} else {
 			$warehouse_to_request = ',
-                "warehouse": "' . $pickup_id . '"';
+				"warehouse": "' . $pickup_id . '"';
 		}
 
 		// Checking if Cash on Delivery
@@ -498,34 +538,34 @@ class WC_Shippify_Admin_Back_Office {
 
 		// Constructing the POST request
 		$request_body = '
-        {
-            "task" : {
-                "products": ' . $items . ',
-                "sender" : {
-                    "email": "' . $sender_mail . '"
-                },
-                "recipient": {
-                    "name": "' . $recipient_name . '",
-                    "email": "' . $recipient_email . '",
-                    "phone": "' . $recipient_phone . '"
-                },
-                "pickup": {
-                    "lat": ' . $pickup_latitude . ',
-                    "lng": ' . $pickup_longitude . ',
-                    "address": "' . $pickup_address . '"' . $warehouse_to_request . '
-                },
-                ' . $total_amount . '
-                "deliver": {
-                    "lat": ' . $deliver_lat . ',
-                    "lng": ' . $deliver_lon . ',
-                    "address": "' . $deliver_address . '"
-                },
-                "ref_id": ' . $ref_id . ',
-                "extra": {
-                    "note":  "' . $note . '"
-                }
-            }
-        }';
+		{
+			"task" : {
+				"products": ' . $items . ',
+				"sender" : {
+					"email": "' . $sender_mail . '"
+				},
+				"recipient": {
+					"name": "' . $recipient_name . '",
+					"email": "' . $recipient_email . '",
+					"phone": "' . $recipient_phone . '"
+				},
+				"pickup": {
+					"lat": ' . $pickup_latitude . ',
+					"lng": ' . $pickup_longitude . ',
+					"address": "' . $pickup_address . '"' . $warehouse_to_request . '
+				},
+				' . $total_amount . '
+				"deliver": {
+					"lat": ' . $deliver_lat . ',
+					"lng": ' . $deliver_lon . ',
+					"address": "' . $deliver_address . '"
+				},
+				"ref_id": ' . $ref_id . ',
+				"extra": {
+					"note":  "' . $note . '"
+				}
+			}
+		}';
 
 		// Basic Authorization
 		$args = array(
@@ -545,57 +585,6 @@ class WC_Shippify_Admin_Back_Office {
 
 		return $response;
 
-	}
-
-	/**
-	 * Diffuse Logic Algorithm used to calculate Shippify product size based on the product dimensions.
-	 *
-	 * @param WC_Product The product to calculate the size.
-	 */
-	public function calculate_product_shippify_size( $product ) {
-
-		$height = $product->get_height();
-		$width  = $product->get_width();
-		$length = $product->get_length();
-
-		if ( ! isset( $height ) || '' == $height ) {
-			return '3';
-		}
-		if ( ! isset( $width ) || '' == $width ) {
-			return '3';
-		}
-		if ( ! isset( $length ) || '' == $length ) {
-			return '3';
-		}
-
-		$width  = floatval( $width );
-		$height = floatval( $height );
-		$length = floatval( $length );
-
-		$array_size        = array( 1, 2, 3, 4, 5 );
-		$array_dimensions  = array( 50, 80, 120, 150, 150 );
-		$radio_membership  = 10;
-		$dimensions_array  = array( 10, 10, 10 );
-		$final_percentages = array();
-
-		foreach ( $array_size as $size ) {
-			$percentage     = 0;
-			$max_percentage = 100 / 3;
-			foreach ( $dimensions_array as $dimension ) {
-				if ( $dimension < $array_dimensions[ $size - 1 ] ) {
-					$percentage = $percentage + $max_percentage;
-				} elseif ( $dimension < $array_dimensions[ $size - 1 ] + $radio_membership ) {
-					$pre_result = ( 1 - ( abs( $array_dimensions[ $size - 1 ] - $dimension ) / ( 2 * $radio_membership ) ) );
-					$tmp_p      = $pre_result < 0 ? 0 : $pre_result;
-					$percentage = $percentage + ( ( ( $pre_result * 100 ) * $max_percentage ) / 100 );
-				} else {
-					$percentage = $percentage + 0;
-				}
-			}
-			$final_percentages[] = $percentage;
-		}
-		$maxs = array_keys( $final_percentages, max( $final_percentages ) );
-		return $array_size[ $maxs[0] ];
 	}
 }
 
