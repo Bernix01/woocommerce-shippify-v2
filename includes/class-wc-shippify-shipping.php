@@ -224,13 +224,19 @@ if ( in_array( 'woocommerce/woocommerce.php', $active_plugins ) ) {
 				$delivery_longitude = $post_data['shippify_longitude'];
 				$warehouse_items    = array();
 				foreach ( $items as $item => $values ) {
-					$_id          = $values['data']->get_id();
+					if ( array_key_exists( 'variation_id', $values ) ){
+						$_id = $values['product_id'];
+					} else {
+						$_id = $values['data']->get_id();
+					}
 					$_product     = wc_get_product( $_id );
-					$warehouse_id = get_post_meta( $_id, 'warehouse_id', true );
+					$warehouse_id = $_product->get_meta( 'warehouse_id' );
+
 					if ( ! warehouse_id ) {
 						$valid = false;
 						break;
 					}
+
 					if ( array_key_exists( $warehouse_id, $warehouses ) ) {
 						if ( array_key_exists( $warehouse_id, $warehouse_items ) ) {
 							array_push(
@@ -321,6 +327,10 @@ if ( in_array( 'woocommerce/woocommerce.php', $active_plugins ) ) {
 
 				if ( is_cart() || 'yes' == get_option( 'shippify_free_shipping' ) ) {
 					$cost = 0;
+				}
+
+				if ( 'yes' == get_option( 'shippify_350_shipping' ) ) {
+					$cost = 3.5;
 				}
 
 				$rate = array(
