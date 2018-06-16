@@ -37,6 +37,7 @@ if ( ! class_exists( 'WC_Integration_Demo_Integration' ) ) {
 			$this->shippify_sender_email     = $this->get_option( 'sender_email' );
 			$this->shippify_sameday          = $this->get_option( 'shippify_sameday' );
 			$this->shippify_free_shipping    = $this->get_option( 'shippify_free_shipping' );
+			$this->shippify_350_shipping     = $this->get_option( 'shippify_350_shipping' );
 			$this->shippify_instant_dispatch = $this->get_option( 'shippify_instant_dispatch' );
 
 			update_option( 'shippify_id', $this->shippify_api_key );
@@ -45,6 +46,7 @@ if ( ! class_exists( 'WC_Integration_Demo_Integration' ) ) {
 			update_option( 'shippify_sender_email', $this->shippify_sender_email );
 			update_option( 'shippify_sameday', $this->shippify_sameday );
 			update_option( 'shippify_free_shipping', $this->shippify_free_shipping );
+			update_option( 'shippify_350_shipping', $this->shippify_350_shipping );
 			update_option( 'shippify_instant_dispatch', $this->shippify_instant_dispatch );
 
 			add_action( 'woocommerce_update_options_integration_' . $this->id, array( $this, 'process_admin_options' ) );
@@ -104,6 +106,14 @@ if ( ! class_exists( 'WC_Integration_Demo_Integration' ) ) {
 					'type'        => 'checkbox',
 					'label'       => ' ',
 					'description' => __( 'If marked, the shipping fare would be charged to the store insted of the final customer. ', 'woocommerce-shippify' ),
+					'desc_tip'    => true,
+					'default'     => '',
+				),
+				'shippify_350_shipping'    => array(
+					'title'       => __( '3.50 shipping rate', 'woocommerce-shippify' ),
+					'type'        => 'checkbox',
+					'label'       => ' ',
+					'description' => __( 'If marked, the shipping fare would be $3.50 always. ', 'woocommerce-shippify' ),
 					'desc_tip'    => true,
 					'default'     => '',
 				),
