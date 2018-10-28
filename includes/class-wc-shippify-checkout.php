@@ -352,7 +352,11 @@ class WC_Shippify_Checkout {
 			$delivery_address      = $_POST['shipping_address_1'] ?: $_POST['billing_address_1'];
 			$warehouse_items       = array();
 			foreach ( $items as $item => $values ) {
-				$_id          = $values['data']->get_id();
+				if ( array_key_exists( 'variation_id', $values ) ){
+					$_id = $values['product_id'];
+				} else {
+					$_id = $values['data']->get_id();
+				}
 				$_product     = wc_get_product( $_id );
 				$warehouse_id = get_post_meta( $_id, 'warehouse_id', true );
 				if ( ! warehouse_id ) {

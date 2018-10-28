@@ -75,7 +75,7 @@ if ( in_array( 'woocommerce/woocommerce.php', apply_filters( 'active_plugins', g
 
 					$deliveries = json_decode( $deliveries_str, true );
 					$quote_id   = $_SESSION['quoteId'];
-					$ref_id     = $order_id;
+					$ref_id     = $order->get_id();
 
 					// Checking if Cash on Delivery.
 					$payment_method = $order->get_payment_method();
